@@ -15,6 +15,7 @@ import xarray as xr
 class ELMcase():
   def __init__(self,caseid='',compset='ICBELMBC',suffix='',site='',sitegroup='AmeriFlux', \
             res='',tstep=1,np=1,nyears=1,startyear=-1, machine='', queue='', \
+            project='', \
             exeroot='', modelroot='', runroot='',caseroot='',inputdata='', \
             region_name='', lat_bounds=[-90,90],lon_bounds=[-180,180], \
             point_list=[], namelist_options=[],casename='',mpilib=''):
@@ -59,9 +60,9 @@ class ELMcase():
           self.caseid = current_date.strftime('%Y%m%d')
         else:
           self.caseid = caseid
-        self.queue=queue
-        self.project=''
-        self.get_machine(machine=machine)
+        self.get_machine(machine)
+        self.get_project(project)
+        self.get_queue(queue)
         self.compiler=''
         self.pio_version=2
         self.compset=compset
@@ -120,26 +121,54 @@ class ELMcase():
     self.obs_err=obs_err
 
   def get_machine(self,machine=''):
+
     if (machine == ''):
       hostname = socket.gethostname()
       if ('baseline' in hostname):
         self.machine = 'cades-baseline'
     else:
       self.machine=machine
-    self.noslurm=False
-    if ('linux' in self.machine or 'ubuntu' in self.machine):
-        self.noslurm=True
-    if self.queue == '':
-        self.queue='batch'
-    if ('baseline' in self.machine):
-        self.project='CLI185'
-    if ('pm-cpu' in self.machine):
-        self.project='e3sm'
-        self.queue='regular'
-    elif ('chrysalis' in self.machine):
-        self.project='e3sm'
-        self.queue='compute'
 
+    self.noslurm=False
+
+    if ('linux' in self.machine or 'ubuntu' in self.machine):
+      self.noslurm=True
+        
+  def get_queue(self,queue=''):
+
+    if queue != '':
+      self.queue=queue
+    else:
+      if ('pm-cpu' in self.machine):
+        self.queue='regular'
+      elif ('chrysalis' in self.machine):
+        self.queue='compute'
+      else:
+        self.queue='batch'
+        
+  def get_project(self,project=''):
+
+    # We assume that 'e3sm' is the default project
+    # for perlmutter and chrysalis, and CLI185
+    # is the project for baseline, otherwise
+    # the user can override
+
+    if (project != ''):
+      self.project = project
+    else:
+      if ('baseline' in self.machine):
+        self.project='CLI185'
+      if ('pm-cpu' in self.machine):
+        self.project='e3sm'
+      elif ('chrysalis' in self.machine):
+        self.project='e3sm'
+      else:
+        print('Error: Unknown machine submitted: '+self.machine)
+        sys.exit(1)
+
+    
+    
+        
   def get_model_directories(self):
     if (not os.path.exists(self.modelroot)):
       print('Error:  Model root '+self.modelroot+' does not exist.')
@@ -280,7 +309,7 @@ class ELMcase():
       self.has_finidat=True
 
 #-----------------------------------------------------------------------------------------
-  def create_case(self, machine='',casename=''):
+  def create_case(self, walltime, machine='',casename=''):
     if (casename == ''):
       #construct default casename
       if (self.site == ''):
@@ -301,9 +330,14 @@ class ELMcase():
          sys.exit(1)    
     print("CASE directory is: "+self.casedir)
     #create the case
-    walltime=24
-    timestr=str(int(float(walltime)))+':'+str(int((float(walltime)- \
-                                     int(float(walltime)))*60))+':00'
+
+    print('walltime: '+str(walltime))
+    # Take the integer portion rounded down for the hours
+    walltime_hrs_str = str(int(float(walltime)))
+    # Take the decimal and multiply by 60 to get minute
+    walltime_min_str = str(int((float(walltime)-int(float(walltime)))*60))
+    timestr=walltime_hrs_str+':'+walltime_min_str+':00'
+    
     #IF the resolution is user defined (site), we will first create a case with 
     #original resolution to get them correct domain, surface and land use files.
     cmd = './create_newcase --case '+self.casedir+' --mach '+self.machine+' --compset '+ \
@@ -314,6 +348,11 @@ class ELMcase():
       cmd = cmd+' --compiler '+self.compiler
     if (self.mpilib != ''):
       cmd = cmd+' --mpilib '+self.mpilib
+
+    # Add queue information if provided
+    if (self.queue != ''):
+      cmd = cmd+' --queue '+self.queue
+      
     #ADD MPILIB OPTION HERE
     cmd = cmd+' > '+self.OLMTdir+'/create_newcase.log'
     os.chdir(self.modelroot+'/cime/scripts')

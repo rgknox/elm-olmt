@@ -20,6 +20,13 @@ modelroot = os.environ['HOME']+'/models/E3SM'
 #exeroot = '/gpfs/wolf2/cades/cli185/scratch/zdr/e3sm_run/20250421_TAM-06_ICB1850ELMFATES_ad_spinup/bld'
 exeroot = ''
 
+#---- optional machine controls ----
+
+walltime = 24   # in hours
+queue = 'regular'
+project = 'm2420'   # NGEETropics acc on perlmutter
+
+
 #----------------------Required inputs---------------------------------------------
 
 runtype = 'site'               #site,latlon_list,latlon_bbox
