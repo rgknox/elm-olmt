@@ -81,6 +81,7 @@ def create_ensemble_script(self, walltime=6):
     self.rundir_UQ = self.runroot+'/UQ/'+self.casename
 
 def create_multisite_script(self,sites,scriptdir, walltime=6):
+
     #Create the PBS script we will submit to run multiple sites
     os.chdir(self.casedir)
     #Get the LD_LIBRARY_PATH from software environment
@@ -100,7 +101,7 @@ def create_multisite_script(self,sites,scriptdir, walltime=6):
     if (self.queue == 'debug'):
         walltime=2
     if ('pm-cpu' in self.machine):
-        myfile.write('#SBATCH -t '+str(walltime)+'\n')
+        myfile.write('#SBATCH -t '+str(walltime)+':00:00\n')
         myfile.write('#SBATCH --constraint=cpu\n')
     else:
         myfile.write('#SBATCH -t '+str(walltime)+':00:00\n')
@@ -108,7 +109,12 @@ def create_multisite_script(self,sites,scriptdir, walltime=6):
     myfile.write('#SBATCH --nodes='+str(nnodes)+'\n')
     if (self.project != ''):
         myfile.write('#SBATCH -A '+self.project+'\n')
-    myfile.write('#SBATCH -p '+self.queue+'\n')
+
+    if('pm-cpu' in self.machine):
+        myfile.write('#SBATCH -q '+self.queue+'\n')
+    else:
+        myfile.write('#SBATCH -p '+self.queue+'\n')
+        
     myfile.write('cd '+self.caseroot+'/'+self.casename+'\n')
     myfile.write('export LD_LIBRARY_PATH='+ldpath+'\n\n')
     for s in sites:
